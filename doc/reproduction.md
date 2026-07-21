@@ -126,3 +126,75 @@ ang_vel_z ∈ (±0.5); expect steady omnidirectional walking with no falls.
   web. Verify real progress via checkpoint mtimes in the log dir.
 - **Slurm stdout is block-buffered**: the `.out` file can lag many minutes behind;
   it is not a sign the job hung.
+
+---
+
+# Reproducing the Unitree H2 Motion-Tracking Policy (BeyondMimic)
+
+Follow-up to the locomotion policy above (2026-07-21/22). Adds H2 support to the
+`src/tasks/tracking/` module (BeyondMimic re-implementation, previously G1-only)
+and produces H2 reference motions by retargeting LAFAN1 with
+[GMR](https://github.com/YanjieZe/GMR), which does not ship H2 support.
+
+## 6. Pipeline overview
+
+```
+LAFAN1 bvh ──GMR (jubail, CPU)──> pkl ──batch_gmr_pkl_to_csv──> csv (in git)
+    csv ──scripts/csv_to_npz.py --robot h2 (GPU)──> npz ──train.py──> policy
+```
+
+- Task registration: `src/tasks/tracking/config/h2/` (auto-discovered; foot end
+  body is `*_ankle_pitch_link` — H2's ankle chain is roll→pitch, reversed vs G1).
+- GMR integration: `scripts/gmr_h2/setup_gmr_h2.sh` clones GMR at a pinned
+  commit, installs the H2 mocap scene + IK config, and patches `params.py`.
+  `retarget_bvh_headless.py` replaces GMR's viewer-bound script for cluster use.
+- Slurm wrappers: `scripts/slurm/{gmr_retarget_h2,csv_to_npz_h2,train_h2_tracking,play_h2_tracking}.sbatch`.
+
+## 7. IK config tuning history (bvh_lafan1_to_h2.json)
+
+QC method: replay the csv through the H2 model (`csv_to_npz --render`), compare
+root/waist pitch numerically against Unitree's official G1 retarget of the same
+motion. Iterations (each ~2 min CPU on the `compute` partition):
+
+| ver | change | result |
+|-----|--------|--------|
+| v1 | copy G1 config, scale legs 1.1 / arms 0.95, foot=ankle_pitch_link | pelvis sagged 11° fwd, waist +15° perm. bend, 7.4% frames >15° off |
+| v2 | pelvis rot weight 10→50 (stage1), 5→30 (stage2) | bias −11→−3°, extremes remain |
+| v3 | stage2 torso rot 10→50, shoulders 100→50 | pelvis tracks exactly; waist still +17° |
+| v4 | torso offset ⊗ pitch(+18°) | wrong sign: waist saturation 72% |
+| v5 | torso offset ⊗ pitch(−18°) | waist mean +0.1°, 0% frames >15° off — shipped |
+
+Root causes: (a) pelvis rotation tracked too weakly for H2's mass layout;
+(b) H2's `torso_link` target needs a constant −18° pitch offset relative to the
+G1 convention. The v4/v5 sign flip is the cheap way to resolve the offset
+direction empirically.
+
+## 8. Training & verification
+
+```bash
+# full run (h100, ~30k iters; smoke-test variant: NUM_ENVS=256 MAX_ITERS=30 LOGGER=tensorboard)
+sbatch --export=ALL,MOTION_FILE=src/assets/motions/h2/dance1_subject2.npz \
+  scripts/slurm/train_h2_tracking.sbatch
+# play + video
+sbatch --export=ALL,CHECKPOINT=logs/rsl_rl/h2_tracking/<run>/model_<it>.pt,MOTION_FILE=src/assets/motions/h2/dance1_subject2.npz \
+  scripts/slurm/play_h2_tracking.sbatch
+```
+
+## 9. Known issues (tracking-specific)
+
+- **nefc overflow / SIGABRT**: H2 poses generate more simultaneous contacts than
+  the G1-tuned defaults allow. Symptoms: `nefc overflow - please increase njmax`
+  in training logs (constraints silently dropped), or `csv_to_npz --render`
+  dying with SIGABRT. Fixed by raising `nconmax`/`njmax` in the H2 tracking cfg
+  (60/400) and in `csv_to_npz.py` (100/500). If H2 assets change, expect to
+  revisit these.
+- **GMR quirks** (pinned commit bb1bbe4): `bvh_to_robot.py` hard-requires a
+  display; `bvh_to_robot_dataset.py` has three stale-API bugs; the default
+  `daqp` solver is not installed by `pip install -e .` — install `daqp`
+  explicitly; `torch` is an undeclared import dependency (install CPU build).
+- **CSV conventions**: root quaternion is **xyzw** (matches `csv_to_npz.py`);
+  dof columns follow the robot's MJCF tree order — for H2 the ankle columns are
+  roll-then-pitch, so use `--joint-order g1` only when replaying a G1 csv.
+- **tyro `--line-range`**: pass as `--line-range <start> <end>` fails under the
+  project's TYRO_FLAGS; segment rendering via sbatch `--wrap` needs care (or
+  just render the full clip).
