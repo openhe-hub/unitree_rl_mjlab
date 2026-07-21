@@ -60,10 +60,15 @@ text = text.replace(
 text = text.replace(
     'VIEWER_CAM_DISTANCE_DICT = {\n',
     'VIEWER_CAM_DISTANCE_DICT = {\n    "unitree_h2": 3.0,\n', 1)
-count = text.count("unitree_h2")
-if count != 4:
-    sys.exit(f"expected 4 unitree_h2 insertions in params.py, got {count} "
-             "(upstream layout changed?)")
+expected = (
+    '"unitree_h2": ASSET_ROOT',
+    '"unitree_h2": IK_CONFIG_ROOT',
+    '"unitree_h2": "pelvis"',
+    '"unitree_h2": 3.0',
+)
+missing = [e for e in expected if e not in text]
+if missing:
+    sys.exit(f"params.py insertion failed for {missing} (upstream layout changed?)")
 params.write_text(text)
 print("params.py patched")
 EOF
