@@ -444,6 +444,10 @@ def main(
   """
   sim_cfg = SimulationCfg()
   sim_cfg.mujoco.timestep = 1.0 / output_fps
+  # Generous constraint buffers: single-env kinematic replay is cheap, and
+  # contact-heavy poses overflow the defaults (SIGABRT in mujoco-warp).
+  sim_cfg.nconmax = 100
+  sim_cfg.njmax = 500
   if robot == "g1":
     scene = Scene(unitree_g1_flat_tracking_env_cfg().scene, device=device)
   elif robot == "g1_23dof":

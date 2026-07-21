@@ -20,6 +20,11 @@ def unitree_h2_flat_tracking_env_cfg(
   """Create Unitree H2 flat terrain tracking configuration."""
   cfg = make_tracking_env_cfg()
 
+  # H2 produces more simultaneous contacts than the G1 defaults allow
+  # (njmax=250 overflowed at 281 during training resets).
+  cfg.sim.nconmax = 60
+  cfg.sim.njmax = 400
+
   cfg.scene.entities = {"robot": get_h2_robot_cfg()}
 
   self_collision_cfg = ContactSensorCfg(
