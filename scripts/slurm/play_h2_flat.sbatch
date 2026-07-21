@@ -32,7 +32,7 @@ echo "=== node: $(hostname), checkpoint: ${CHECKPOINT} ==="
 timeout 20m python scripts/play.py Unitree-H2-Flat \
   --checkpoint_file="${CHECKPOINT}" \
   --num_envs="${NUM_ENVS}" \
-  --video \
+  --video=True \
   --video_length="${VIDEO_LENGTH}" \
   --viewer=viser
 rc=$?
