@@ -363,7 +363,7 @@
         "torso_link": [
             "Spine2",
             0,
-            10,
+            50,
             [
                 0.0,
                 0.0,
@@ -379,7 +379,7 @@
         "left_shoulder_yaw_link": [
             "LeftArm",
             5,
-            100,
+            50,
             [
                 0.0,
                 0.0,
@@ -427,7 +427,7 @@
         "right_shoulder_yaw_link": [
             "RightArm",
             5,
-            100,
+            50,
             [
                 0.0,
                 0.0,
