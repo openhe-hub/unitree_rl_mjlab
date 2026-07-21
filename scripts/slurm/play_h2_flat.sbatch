@@ -22,6 +22,8 @@ set -uo pipefail
 CHECKPOINT=${CHECKPOINT:?set CHECKPOINT=path/to/model_xxx.pt}
 VIDEO_LENGTH=${VIDEO_LENGTH:-500}
 NUM_ENVS=${NUM_ENVS:-1}
+VIDEO_HEIGHT=${VIDEO_HEIGHT:-1080}
+VIDEO_WIDTH=${VIDEO_WIDTH:-1920}
 
 cd "${SLURM_SUBMIT_DIR}"
 source .venv/bin/activate
@@ -34,6 +36,8 @@ timeout 20m python scripts/play.py Unitree-H2-Flat \
   --num_envs="${NUM_ENVS}" \
   --video=True \
   --video_length="${VIDEO_LENGTH}" \
+  --video_height="${VIDEO_HEIGHT}" \
+  --video_width="${VIDEO_WIDTH}" \
   --viewer=viser
 rc=$?
 
