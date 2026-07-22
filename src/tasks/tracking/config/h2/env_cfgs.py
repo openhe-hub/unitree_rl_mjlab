@@ -110,15 +110,9 @@ def unitree_h2_flat_tracking_env_cfg(
         "operation": "scale",
       },
     )
-    cfg.events["effort_limits"] = EventTermCfg(
-      func=dr.effort_limits,
-      mode="reset",
-      params={
-        "asset_cfg": SceneEntityCfg("robot"),
-        "effort_limit_range": (0.85, 1.0),
-        "operation": "scale",
-      },
-    )
+    # No effort_limits DR: mjlab's effort_limits does not unwrap
+    # DelayedActuator (unlike pd_gains), and position-controlled joints
+    # rarely hit their torque limits anyway.
     cfg.events["body_mass"] = EventTermCfg(
       func=dr.body_mass,
       mode="reset",
