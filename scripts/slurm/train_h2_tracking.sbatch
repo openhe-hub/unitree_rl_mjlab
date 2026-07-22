@@ -13,6 +13,8 @@
 #   mkdir -p logs/slurm
 #   Smoke test: sbatch --time=00:30:00 --export=ALL,MOTION_FILE=src/assets/motions/h2/dance1_subject2_smoke.npz,NUM_ENVS=256,MAX_ITERS=30,LOGGER=tensorboard scripts/slurm/train_h2_tracking.sbatch
 #   Full run:   sbatch --export=ALL,MOTION_FILE=src/assets/motions/h2/dance1_subject2.npz scripts/slurm/train_h2_tracking.sbatch
+#   Fine-tune from a prior run (MAX_ITERS = additional iterations):
+#     sbatch --export=ALL,MOTION_FILE=...,TASK=Unitree-H2-Tracking-Robust-No-State-Estimation,RESUME_RUN=2026-07-21_19-14-15,RESUME_CKPT=model_30000.pt,MAX_ITERS=15000 scripts/slurm/train_h2_tracking.sbatch
 
 set -euo pipefail
 
@@ -21,6 +23,16 @@ TASK=${TASK:-Unitree-H2-Tracking-No-State-Estimation}
 NUM_ENVS=${NUM_ENVS:-4096}
 MAX_ITERS=${MAX_ITERS:-30001}
 LOGGER=${LOGGER:-wandb}
+RESUME_RUN=${RESUME_RUN:-}
+RESUME_CKPT=${RESUME_CKPT:-}
+
+RESUME_ARGS=()
+if [[ -n "${RESUME_RUN}" ]]; then
+  RESUME_ARGS+=(--agent.resume=True --agent.load-run="${RESUME_RUN}")
+  if [[ -n "${RESUME_CKPT}" ]]; then
+    RESUME_ARGS+=(--agent.load-checkpoint="${RESUME_CKPT}")
+  fi
+fi
 
 cd "${SLURM_SUBMIT_DIR}"
 source .venv/bin/activate
@@ -38,4 +50,5 @@ python scripts/train.py "${TASK}" \
   --env.scene.num-envs="${NUM_ENVS}" \
   --agent.max-iterations="${MAX_ITERS}" \
   --agent.logger="${LOGGER}" \
-  --agent.wandb-project=unitree_rl_mjlab
+  --agent.wandb-project=unitree_rl_mjlab \
+  ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"}
