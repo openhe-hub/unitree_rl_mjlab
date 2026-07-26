@@ -25,7 +25,7 @@ def unitree_h2_flat_tracking_env_cfg(
 
   Args:
     robust: Enable the deployment-oriented domain randomization set (actuator
-      delay, PD-gain/mass/effort scaling, joint friction, stronger pushes).
+      delay, PD-gain and mass scaling, joint friction, stronger pushes).
   """
   cfg = make_tracking_env_cfg()
 
@@ -163,7 +163,6 @@ def unitree_h2_flat_tracking_env_cfg(
     # Evaluate under nominal physics: strip the robust-DR reset terms.
     for term in (
       "pd_gains",
-      "effort_limits",
       "body_mass",
       "joint_friction",
       "actuator_delay",
